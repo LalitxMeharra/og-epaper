@@ -5,18 +5,11 @@ const state = { step: 1, maxStep: 1, date: null, lang: null, paper: null, editio
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// Force Local Timezone Date Formatting
 function getLocalYYYYMMDD(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
     const d = String(dateObj.getDate()).padStart(2, '0');
     return `${y}${m}${d}`;
-}
-
-// Optimization Function to save data in both Reader and PDF
-function getOptimizedUrl(url) {
-    // Converts q=100 to q=60 and adds max width to drop file size significantly
-    return url.replace('&q=100', '&q=60&w=1400');
 }
 
 const today = new Date();
@@ -227,7 +220,6 @@ async function extractEpaper() {
     }
 }
 
-// --- Native Image Reader Logic (Optimized) ---
 let currentReaderPage = 0;
 const readerModal = $('#readerModal');
 const readerImage = $('#readerImage');
@@ -237,8 +229,7 @@ function loadReaderPage(index) {
     if(index < 0 || index >= state.extractedPages.length) return;
     currentReaderPage = index;
     
-    // Apply compression for fast loading
-    readerImage.src = getOptimizedUrl(state.extractedPages[index]);
+    readerImage.src = state.extractedPages[index];
     readerIndicator.textContent = `Page ${index + 1} / ${state.extractedPages.length}`;
     
     $('#prevPage').disabled = (index === 0);
@@ -266,7 +257,6 @@ $('#closeReader').onclick = () => {
 $('#prevPage').onclick = () => loadReaderPage(currentReaderPage - 1);
 $('#nextPage').onclick = () => loadReaderPage(currentReaderPage + 1);
 
-// --- Compressed Single PDF Downloader ---
 async function getBase64Image(url) {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -299,10 +289,7 @@ $('#downloadBtn').onclick = async () => {
         for(let i = 0; i < state.extractedPages.length; i++) {
             statusEl.textContent = `Processing Page ${i+1} of ${state.extractedPages.length}...`;
             
-            // Apply compression before fetching to keep PDF size around 15MB
-            const optimizedUrl = getOptimizedUrl(state.extractedPages[i]);
-            const imgData = await getBase64Image(optimizedUrl);
-            
+            const imgData = await getBase64Image(state.extractedPages[i]);
             const orientation = imgData.width > imgData.height ? 'l' : 'p';
             if (i === 0) {
                 pdf = new jsPDF({ orientation: orientation, unit: 'px', format: [imgData.width, imgData.height] });
@@ -310,7 +297,6 @@ $('#downloadBtn').onclick = async () => {
                 pdf.addPage([imgData.width, imgData.height], orientation);
                 pdf.setPage(i + 1);
             }
-            
             pdf.addImage(imgData.b64, 'JPEG', 0, 0, imgData.width, imgData.height);
         }
         
