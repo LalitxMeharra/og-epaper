@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
@@ -35,7 +36,6 @@ def decode_payload(payload: str) -> str:
             decoded += char
     return decoded
 
-# Stealth headers to prevent blocking by Tradingref API
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -91,9 +91,28 @@ def extract_epaper(req: ExtractRequest):
         final_links = []
         for page in pages:
             direct_link = f"{prefix}{page}" if prefix.endswith('/') else f"{prefix}/{page}"
-            wsrv_url = f"https://wsrv.nl/?url={urllib.parse.quote(direct_link, safe='')}&maxage=1d&output=jpg&q=100"
-            final_links.append(wsrv_url)
+            encoded_link = base64.urlsafe_b64encode(direct_link.encode('utf-8')).decode('utf-8').rstrip("=")
+            clean_url = f"/api/view/{encoded_link}.jpg"
+            final_links.append(clean_url)
             
         return {"status": "success", "pages": final_links, "total": len(final_links)}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.get("/api/view/{payload}")
+def serve_image(payload: str):
+    try:
+        if payload.endswith(".jpg"):
+            payload = payload[:-4]
+        padding = '=' * (4 - len(payload) % 4)
+        decoded_url = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+        
+        wsrv_url = f"https://wsrv.nl/?url={urllib.parse.quote(decoded_url, safe='')}&maxage=1d&output=jpg&q=60&w=1400"
+        img_res = requests.get(wsrv_url, headers=HEADERS, timeout=9)
+        
+        if img_res.status_code == 200:
+            return Response(content=img_res.content, media_type="image/jpeg")
+        else:
+            raise HTTPException(status_code=400, detail="Image fetch failed")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Invalid image payload")
