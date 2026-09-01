@@ -18,13 +18,10 @@
 html { scroll-behavior: smooth; }
 
 body {
-  margin: 0;
-  font-family: var(--font-body);
-  color: var(--ink);
+  margin: 0; font-family: var(--font-body); color: var(--ink);
   background-color: var(--paper);
   background-image: repeating-linear-gradient(90deg, rgba(28,31,38,0.035) 0px, rgba(28,31,38,0.035) 1px, transparent 1px, transparent 96px);
-  min-height: 100vh;
-  padding: 0 20px 80px;
+  min-height: 100vh; padding: 0 20px 80px;
 }
 
 .masthead { max-width: 920px; margin: 0 auto; padding: 52px 16px 22px; text-align: center; }
@@ -84,3 +81,30 @@ body {
 .btn-primary { background: var(--rust); color: #fff; border: none; padding: 13px 26px; border-radius: 4px; font-weight: 600; font-size: .94rem; cursor: pointer; transition: transform .1s; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-ghost { background: none; border: none; color: var(--ink-soft); font-size: .9rem; cursor: pointer; font-weight: 500; }
+
+/* ---------- Reader Modal (Native Zoom) ---------- */
+.reader-modal {
+  display: none; position: fixed; inset: 0; background: #0f0f11;
+  z-index: 9999; flex-direction: column;
+}
+.reader-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px; background: #1a1c23; color: #fff;
+  border-bottom: 1px solid #333;
+}
+.reader-title { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600; }
+.reader-btn {
+  background: transparent; border: 1px solid #555; color: #fff;
+  padding: 8px 14px; border-radius: 4px; cursor: pointer; font-family: var(--font-body);
+}
+.reader-btn:hover { background: #333; }
+.reader-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.close-btn { border-color: #ef4444; color: #fca5a5; }
+.close-btn:hover { background: #ef4444; color: #fff; }
+.reader-body {
+  flex: 1; overflow: auto; display: flex; justify-content: center;
+  align-items: flex-start; padding: 10px;
+}
+.reader-body img {
+  max-width: 100%; height: auto; object-fit: contain;
+}
