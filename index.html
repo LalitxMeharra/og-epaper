@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <!-- Libraries for Professional ZIP Download -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  
+  <!-- jsPDF Library for Single PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <header class="masthead">
@@ -74,11 +74,11 @@
           <div class="grid-2">
             <div class="sel-card format-btn" id="readOnlineBtn">
               <h3 class="title">Gallery View</h3>
-              <p class="sub">Native fast image reader</p>
+              <p class="sub">Fast & data-saving reader</p>
             </div>
             <div class="sel-card format-btn" id="downloadBtn">
-              <h3 class="title">Download ZIP</h3>
-              <p class="sub">Extract original JPEGs</p>
+              <h3 class="title">Download PDF</h3>
+              <p class="sub">Optimized Single PDF</p>
             </div>
           </div>
           <div id="extractionStatus" style="margin-top:15px; font-weight:600; color:var(--rust); text-align:center;"></div>
