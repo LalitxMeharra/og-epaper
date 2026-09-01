@@ -5,14 +5,18 @@ const state = { step: 1, maxStep: 1, date: null, lang: null, paper: null, editio
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// Reader State
-let currentReaderPage = 0;
-
+// Force Local Timezone Date Formatting
 function getLocalYYYYMMDD(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
     const d = String(dateObj.getDate()).padStart(2, '0');
     return `${y}${m}${d}`;
+}
+
+// Optimization Function to save data in both Reader and PDF
+function getOptimizedUrl(url) {
+    // Converts q=100 to q=60 and adds max width to drop file size significantly
+    return url.replace('&q=100', '&q=60&w=1400');
 }
 
 const today = new Date();
@@ -82,7 +86,6 @@ function buildLanguages() {
         card.innerHTML = `<p class="title">${lang.charAt(0).toUpperCase() + lang.slice(1)}</p><p class="sub">${Object.keys(apiConfigData[lang]).length} Papers</p>`;
         
         card.onclick = () => { 
-            // BUG FIX: Reset State
             state.lang = lang; state.paper = null; state.edition = null; 
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
@@ -107,7 +110,6 @@ function buildPapers() {
         card.innerHTML = `<p class="title">${paper}</p><p class="sub">${Object.keys(apiConfigData[state.lang][paper]).length} Editions</p>`;
         
         card.onclick = () => { 
-            // BUG FIX: Reset State
             state.paper = paper; state.edition = null; 
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
@@ -132,7 +134,6 @@ function buildEditions() {
         btn.textContent = edition;
         
         btn.onclick = () => { 
-            // BUG FIX: Reset State
             state.edition = edition; 
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
@@ -226,7 +227,8 @@ async function extractEpaper() {
     }
 }
 
-// --- Native Image Reader Logic ---
+// --- Native Image Reader Logic (Optimized) ---
+let currentReaderPage = 0;
 const readerModal = $('#readerModal');
 const readerImage = $('#readerImage');
 const readerIndicator = $('#readerPageIndicator');
@@ -234,13 +236,14 @@ const readerIndicator = $('#readerPageIndicator');
 function loadReaderPage(index) {
     if(index < 0 || index >= state.extractedPages.length) return;
     currentReaderPage = index;
-    readerImage.src = state.extractedPages[index];
+    
+    // Apply compression for fast loading
+    readerImage.src = getOptimizedUrl(state.extractedPages[index]);
     readerIndicator.textContent = `Page ${index + 1} / ${state.extractedPages.length}`;
     
     $('#prevPage').disabled = (index === 0);
     $('#nextPage').disabled = (index === state.extractedPages.length - 1);
     
-    // Reset scroll to top when page changes
     $('.reader-body').scrollTop = 0;
 }
 
@@ -249,7 +252,7 @@ $('#readOnlineBtn').onclick = async () => {
         const success = await extractEpaper();
         if(!success) return;
     }
-    document.body.style.overflow = "hidden"; // Prevent background scrolling
+    document.body.style.overflow = "hidden";
     readerModal.style.display = "flex";
     loadReaderPage(0);
 };
@@ -263,8 +266,22 @@ $('#closeReader').onclick = () => {
 $('#prevPage').onclick = () => loadReaderPage(currentReaderPage - 1);
 $('#nextPage').onclick = () => loadReaderPage(currentReaderPage + 1);
 
+// --- Compressed Single PDF Downloader ---
+async function getBase64Image(url) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const img = new Image();
+            img.onload = () => resolve({ b64: reader.result, width: img.width, height: img.height });
+            img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
 
-// --- Professional ZIP Downloader ---
 $('#downloadBtn').onclick = async () => {
     if(state.extractedPages.length === 0) {
         const success = await extractEpaper();
@@ -272,30 +289,39 @@ $('#downloadBtn').onclick = async () => {
     }
     
     const statusEl = $('#extractionStatus');
-    statusEl.textContent = "Starting ZIP creation... Please wait.";
+    statusEl.textContent = "Optimizing & Building PDF... Please wait.";
     statusEl.style.color = "var(--ink)";
     
     try {
-        const zip = new JSZip();
-        const folderName = `${state.paper}_${state.edition}`.replace(/\s+/g, "_");
-        const imgFolder = zip.folder(folderName);
+        const { jsPDF } = window.jspdf;
+        let pdf = null;
         
-        for(let i=0; i<state.extractedPages.length; i++){
-            statusEl.textContent = `Downloading to ZIP: Page ${i+1} of ${state.extractedPages.length}...`;
-            // Fetching image as blob
-            const response = await fetch(state.extractedPages[i]);
-            const blob = await response.blob();
-            imgFolder.file(`Page_${String(i+1).padStart(3, '0')}.jpg`, blob);
+        for(let i = 0; i < state.extractedPages.length; i++) {
+            statusEl.textContent = `Processing Page ${i+1} of ${state.extractedPages.length}...`;
+            
+            // Apply compression before fetching to keep PDF size around 15MB
+            const optimizedUrl = getOptimizedUrl(state.extractedPages[i]);
+            const imgData = await getBase64Image(optimizedUrl);
+            
+            const orientation = imgData.width > imgData.height ? 'l' : 'p';
+            if (i === 0) {
+                pdf = new jsPDF({ orientation: orientation, unit: 'px', format: [imgData.width, imgData.height] });
+            } else {
+                pdf.addPage([imgData.width, imgData.height], orientation);
+                pdf.setPage(i + 1);
+            }
+            
+            pdf.addImage(imgData.b64, 'JPEG', 0, 0, imgData.width, imgData.height);
         }
         
-        statusEl.textContent = "Packing files... This may take a few seconds.";
-        const content = await zip.generateAsync({type:"blob"});
-        saveAs(content, `${folderName}.zip`);
+        statusEl.textContent = "Saving PDF file...";
+        const fileName = `${state.paper}_${state.edition}_${state.date}.pdf`.replace(/\s+/g, "_");
+        pdf.save(fileName);
         
-        statusEl.textContent = "Download Complete!";
+        statusEl.textContent = "Download Complete! Size Minimized.";
         statusEl.style.color = "var(--success)";
     } catch (e) {
-        statusEl.textContent = "ZIP Generation failed. Try reading online.";
+        statusEl.textContent = "PDF Generation failed. Try reading online.";
         statusEl.style.color = "var(--rust)";
     }
 };
