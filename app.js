@@ -80,6 +80,7 @@ function buildLanguages() {
         
         card.onclick = () => { 
             state.lang = lang; state.paper = null; state.edition = null; 
+            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
             
@@ -104,6 +105,7 @@ function buildPapers() {
         
         card.onclick = () => { 
             state.paper = paper; state.edition = null; 
+            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
 
@@ -128,6 +130,7 @@ function buildEditions() {
         
         btn.onclick = () => { 
             state.edition = edition; 
+            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
 
@@ -196,7 +199,7 @@ stepBtns.forEach(b => b.onclick = () => {
 
 async function extractEpaper() {
     const statusEl = $('#extractionStatus');
-    statusEl.textContent = "Cracking Cipher & Resolving Pages...";
+    statusEl.textContent = "Fetching Direct URLs from Server...";
     statusEl.style.color = "var(--rust)";
     try {
         const res = await fetch('/api/extract', {
@@ -220,58 +223,33 @@ async function extractEpaper() {
     }
 }
 
-let currentReaderPage = 0;
-const readerModal = $('#readerModal');
-const readerImage = $('#readerImage');
-const readerIndicator = $('#readerPageIndicator');
-
-function loadReaderPage(index) {
-    if(index < 0 || index >= state.extractedPages.length) return;
-    currentReaderPage = index;
-    
-    readerImage.src = state.extractedPages[index];
-    readerIndicator.textContent = `Page ${index + 1} / ${state.extractedPages.length}`;
-    
-    $('#prevPage').disabled = (index === 0);
-    $('#nextPage').disabled = (index === state.extractedPages.length - 1);
-    
-    $('.reader-body').scrollTop = 0;
-}
-
+// --- Professional Gallery Viewer (PhotoSwipe) ---
 $('#readOnlineBtn').onclick = async () => {
     if(state.extractedPages.length === 0) {
         const success = await extractEpaper();
         if(!success) return;
     }
-    document.body.style.overflow = "hidden";
-    readerModal.style.display = "flex";
-    loadReaderPage(0);
-};
-
-$('#closeReader').onclick = () => {
-    readerModal.style.display = "none";
-    document.body.style.overflow = "auto";
-    readerImage.src = "";
-};
-
-$('#prevPage').onclick = () => loadReaderPage(currentReaderPage - 1);
-$('#nextPage').onclick = () => loadReaderPage(currentReaderPage + 1);
-
-async function getBase64Image(url) {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const img = new Image();
-            img.onload = () => resolve({ b64: reader.result, width: img.width, height: img.height });
-            img.src = reader.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+    
+    const dataSource = state.extractedPages.map(url => ({
+        src: url,
+        w: 1400,
+        h: 2100, // Standard newspaper aspect ratio
+        alt: 'E-Paper Page'
+    }));
+    
+    const lightbox = new window.PhotoSwipeLightbox({
+        dataSource: dataSource,
+        pswpModule: window.PhotoSwipe,
+        bgOpacity: 0.95,
+        wheelToZoom: true,
+        padding: { top: 20, bottom: 20, left: 20, right: 20 }
     });
-}
+    
+    lightbox.init();
+    lightbox.loadAndOpen(0);
+};
 
+// --- Compressed Single PDF Downloader ---
 $('#downloadBtn').onclick = async () => {
     if(state.extractedPages.length === 0) {
         const success = await extractEpaper();
@@ -289,15 +267,27 @@ $('#downloadBtn').onclick = async () => {
         for(let i = 0; i < state.extractedPages.length; i++) {
             statusEl.textContent = `Processing Page ${i+1} of ${state.extractedPages.length}...`;
             
-            const imgData = await getBase64Image(state.extractedPages[i]);
-            const orientation = imgData.width > imgData.height ? 'l' : 'p';
+            const response = await fetch(state.extractedPages[i]);
+            const blob = await response.blob();
+            const b64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+            
+            const img = new Image();
+            img.src = b64;
+            await new Promise(r => img.onload = r);
+            
+            const orientation = img.width > img.height ? 'l' : 'p';
             if (i === 0) {
-                pdf = new jsPDF({ orientation: orientation, unit: 'px', format: [imgData.width, imgData.height] });
+                pdf = new jsPDF({ orientation: orientation, unit: 'px', format: [img.width, img.height] });
             } else {
-                pdf.addPage([imgData.width, imgData.height], orientation);
+                pdf.addPage([img.width, img.height], orientation);
                 pdf.setPage(i + 1);
             }
-            pdf.addImage(imgData.b64, 'JPEG', 0, 0, imgData.width, imgData.height);
+            
+            pdf.addImage(b64, 'JPEG', 0, 0, img.width, img.height);
         }
         
         statusEl.textContent = "Saving PDF file...";
