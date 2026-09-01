@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
@@ -90,10 +91,28 @@ def extract_epaper(req: ExtractRequest):
         final_links = []
         for page in pages:
             direct_link = f"{prefix}{page}" if prefix.endswith('/') else f"{prefix}/{page}"
-            # Vercel ko bypass karke direct client ko URL denge. 1400px width limit taaki size 15MB rahe.
-            wsrv_url = f"https://wsrv.nl/?url={urllib.parse.quote(direct_link, safe='')}&maxage=1d&output=jpg&q=60&w=1400"
-            final_links.append(wsrv_url)
+            # Encode URL to completely hide it in the JSON response
+            encoded_link = base64.urlsafe_b64encode(direct_link.encode('utf-8')).decode('utf-8').rstrip("=")
+            # Return our clean internal API route
+            clean_url = f"/api/image/{encoded_link}"
+            final_links.append(clean_url)
             
         return {"status": "success", "pages": final_links, "total": len(final_links)}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+# Smart Redirect Route
+@app.get("/api/image/{payload}")
+def serve_masked_image(payload: str):
+    try:
+        # Fix base64 padding and decode
+        padding = '=' * (4 - len(payload) % 4)
+        decoded_url = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+        
+        # Build the compressed WSRV url
+        wsrv_url = f"https://wsrv.nl/?url={urllib.parse.quote(decoded_url, safe='')}&maxage=1d&output=jpg&q=60&w=1400"
+        
+        # Redirect browser to do the heavy lifting
+        return RedirectResponse(url=wsrv_url)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Invalid image payload")
