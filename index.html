@@ -2,12 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>OG E-Paper Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Libraries for Professional ZIP Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
   <header class="masthead">
@@ -71,10 +74,10 @@
           <div class="grid-2">
             <div class="sel-card format-btn" id="readOnlineBtn">
               <h3 class="title">Gallery View</h3>
-              <p class="sub">Open HD images in new tab</p>
+              <p class="sub">Native fast image reader</p>
             </div>
             <div class="sel-card format-btn" id="downloadBtn">
-              <h3 class="title">Download</h3>
+              <h3 class="title">Download ZIP</h3>
               <p class="sub">Extract original JPEGs</p>
             </div>
           </div>
@@ -96,6 +99,22 @@
       <div class="ticket-row"><span class="k">Edition</span><span class="v pending" id="tEdition">Not selected</span></div>
     </aside>
   </div>
+
+  <!-- Native Image Reader Modal -->
+  <div id="readerModal" class="reader-modal">
+    <div class="reader-header">
+      <button id="closeReader" class="reader-btn close-btn">✕ Close</button>
+      <span id="readerPageIndicator" class="reader-title">Page 1 / 1</span>
+      <div class="reader-controls">
+        <button id="prevPage" class="reader-btn">← Prev</button>
+        <button id="nextPage" class="reader-btn">Next →</button>
+      </div>
+    </div>
+    <div class="reader-body">
+      <img id="readerImage" src="" alt="E-Paper Page">
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
