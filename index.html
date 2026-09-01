@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OG E-Paper Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="rule-thick"></div>
+    <div class="rule-thin"></div>
+    <h1>OG E-Paper Hub</h1>
+    <p class="tagline">Bypass ad-walls. Read and download regional e-papers in HD.</p>
+    <div class="dateline">
+      <span class="seg" id="todaySeg"></span>
+      <span class="div"></span>
+      <span class="seg">Unrestricted Access</span>
+      <span class="div"></span>
+      <span class="seg serial" id="ticketSerial"></span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <main>
+      <div class="steps" id="steps">
+        <div class="steps-fill" id="stepsFill"></div>
+        <button class="step clickable" data-step="1"><span class="node">1</span><span class="label">Date</span></button>
+        <button class="step clickable" data-step="2"><span class="node">2</span><span class="label">Language</span></button>
+        <button class="step clickable" data-step="3"><span class="node">3</span><span class="label">Paper</span></button>
+        <button class="step clickable" data-step="4"><span class="node">4</span><span class="label">Edition</span></button>
+        <button class="step clickable" data-step="5"><span class="node">5</span><span class="label">Format</span></button>
+      </div>
+
+      <div class="wizard-card">
+        <section class="panel" data-panel="1">
+          <h2>Select Date</h2>
+          <p class="hint">Fetch papers from today or browse the archive.</p>
+          <div class="quick-dates" id="quickDates"></div>
+          <div class="custom-date">
+            <label for="customDate">Or pick another date</label>
+            <input type="date" id="customDate">
+          </div>
+        </section>
+
+        <section class="panel" data-panel="2" hidden>
+          <h2>Choose Language</h2>
+          <p class="hint">Select your preferred reading language.</p>
+          <div id="loadingConfig" style="display:none; color:var(--ink-faint);">Loading live data...</div>
+          <div class="grid-2" id="langGrid"></div>
+        </section>
+
+        <section class="panel" data-panel="3" hidden>
+          <h2>Choose Newspaper</h2>
+          <p class="hint">Select a publication from the list.</p>
+          <div class="grid-2" id="paperGrid"></div>
+        </section>
+
+        <section class="panel" data-panel="4" hidden>
+          <h2>Choose Edition</h2>
+          <p class="hint">City and regional editions available.</p>
+          <div class="edition-list" id="editionList"></div>
+        </section>
+
+        <section class="panel" data-panel="5" hidden>
+          <h2>Ready to Extract</h2>
+          <p class="hint">How would you like to proceed?</p>
+          <div class="grid-2">
+            <div class="sel-card format-btn" id="readOnlineBtn">
+              <h3 class="title">Gallery View</h3>
+              <p class="sub">Open HD images in new tab</p>
+            </div>
+            <div class="sel-card format-btn" id="downloadBtn">
+              <h3 class="title">Download</h3>
+              <p class="sub">Extract original JPEGs</p>
+            </div>
+          </div>
+          <div id="extractionStatus" style="margin-top:15px; font-weight:600; color:var(--rust); text-align:center;"></div>
+        </section>
+
+        <div class="card-actions">
+          <button class="btn-ghost" id="backBtn">← Back</button>
+          <button class="btn-primary" id="nextBtn">Continue →</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="ticket">
+      <h4>Extraction Stub</h4>
+      <div class="ticket-row"><span class="k">Date</span><span class="v pending" id="tDate">Not selected</span></div>
+      <div class="ticket-row"><span class="k">Language</span><span class="v pending" id="tLang">Not selected</span></div>
+      <div class="ticket-row"><span class="k">Newspaper</span><span class="v pending" id="tPaper">Not selected</span></div>
+      <div class="ticket-row"><span class="k">Edition</span><span class="v pending" id="tEdition">Not selected</span></div>
+    </aside>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
