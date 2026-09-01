@@ -9,6 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   
+  <!-- Professional Native Gallery Viewer (Pinch to Zoom) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.2/photoswipe.min.css">
+  
   <!-- jsPDF Library for Single PDF Generation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -74,7 +77,7 @@
           <div class="grid-2">
             <div class="sel-card format-btn" id="readOnlineBtn">
               <h3 class="title">Gallery View</h3>
-              <p class="sub">Fast & data-saving reader</p>
+              <p class="sub">Native Pinch-to-Zoom</p>
             </div>
             <div class="sel-card format-btn" id="downloadBtn">
               <h3 class="title">Download PDF</h3>
@@ -100,21 +103,12 @@
     </aside>
   </div>
 
-  <!-- Native Image Reader Modal -->
-  <div id="readerModal" class="reader-modal">
-    <div class="reader-header">
-      <button id="closeReader" class="reader-btn close-btn">✕ Close</button>
-      <span id="readerPageIndicator" class="reader-title">Page 1 / 1</span>
-      <div class="reader-controls">
-        <button id="prevPage" class="reader-btn">← Prev</button>
-        <button id="nextPage" class="reader-btn">Next →</button>
-      </div>
-    </div>
-    <div class="reader-body">
-      <img id="readerImage" src="" alt="E-Paper Page">
-    </div>
-  </div>
-
+  <script type="module">
+    import PhotoSwipeLightbox from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.2/photoswipe-lightbox.esm.min.js';
+    import PhotoSwipe from 'https://cdnjs.cloudflare.com/ajax/libs/photoswipe/5.4.2/photoswipe.esm.min.js';
+    window.PhotoSwipeLightbox = PhotoSwipeLightbox;
+    window.PhotoSwipe = PhotoSwipe;
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
