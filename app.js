@@ -5,7 +5,9 @@ const state = { step: 1, maxStep: 1, date: null, lang: null, paper: null, editio
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// Force Local Timezone Date Formatting
+// Reader State
+let currentReaderPage = 0;
+
 function getLocalYYYYMMDD(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -51,7 +53,6 @@ async function fetchConfig() {
         const res = await fetch(`/api/config/${state.date}`);
         const data = await res.json();
         
-        // Trap Backend Errors properly
         if(data.error || data.detail) {
             alert("Backend Error: " + (data.message || data.detail));
             $('#loadingConfig').style.display = 'none';
@@ -61,7 +62,6 @@ async function fetchConfig() {
         apiConfigData = data;
         buildLanguages();
         
-        // Auto jump to Step 2
         state.step = 2; 
         state.maxStep = Math.max(state.maxStep, 2);
         renderStep();
@@ -82,7 +82,11 @@ function buildLanguages() {
         card.innerHTML = `<p class="title">${lang.charAt(0).toUpperCase() + lang.slice(1)}</p><p class="sub">${Object.keys(apiConfigData[lang]).length} Papers</p>`;
         
         card.onclick = () => { 
+            // BUG FIX: Reset State
             state.lang = lang; state.paper = null; state.edition = null; 
+            state.extractedPages = [];
+            $('#extractionStatus').textContent = "";
+            
             updateUI(); 
             state.step = 3; state.maxStep = Math.max(state.maxStep, 3);
             renderStep();
@@ -103,7 +107,11 @@ function buildPapers() {
         card.innerHTML = `<p class="title">${paper}</p><p class="sub">${Object.keys(apiConfigData[state.lang][paper]).length} Editions</p>`;
         
         card.onclick = () => { 
+            // BUG FIX: Reset State
             state.paper = paper; state.edition = null; 
+            state.extractedPages = [];
+            $('#extractionStatus').textContent = "";
+
             updateUI(); 
             state.step = 4; state.maxStep = Math.max(state.maxStep, 4);
             renderStep();
@@ -124,7 +132,11 @@ function buildEditions() {
         btn.textContent = edition;
         
         btn.onclick = () => { 
+            // BUG FIX: Reset State
             state.edition = edition; 
+            state.extractedPages = [];
+            $('#extractionStatus').textContent = "";
+
             updateUI(); 
             state.step = 5; state.maxStep = Math.max(state.maxStep, 5);
             renderStep();
@@ -190,7 +202,7 @@ stepBtns.forEach(b => b.onclick = () => {
 
 async function extractEpaper() {
     const statusEl = $('#extractionStatus');
-    statusEl.textContent = "Cracking Mirror Cipher & Bypassing CDN...";
+    statusEl.textContent = "Cracking Cipher & Resolving Pages...";
     statusEl.style.color = "var(--rust)";
     try {
         const res = await fetch('/api/extract', {
@@ -201,7 +213,7 @@ async function extractEpaper() {
         const data = await res.json();
         if(data.status === "success") {
             state.extractedPages = data.pages;
-            statusEl.textContent = `Success! ${data.total} Pages Extracted.`;
+            statusEl.textContent = `Success! ${data.total} Pages Loaded.`;
             statusEl.style.color = "var(--success)";
             return true;
         } else {
@@ -214,26 +226,78 @@ async function extractEpaper() {
     }
 }
 
+// --- Native Image Reader Logic ---
+const readerModal = $('#readerModal');
+const readerImage = $('#readerImage');
+const readerIndicator = $('#readerPageIndicator');
+
+function loadReaderPage(index) {
+    if(index < 0 || index >= state.extractedPages.length) return;
+    currentReaderPage = index;
+    readerImage.src = state.extractedPages[index];
+    readerIndicator.textContent = `Page ${index + 1} / ${state.extractedPages.length}`;
+    
+    $('#prevPage').disabled = (index === 0);
+    $('#nextPage').disabled = (index === state.extractedPages.length - 1);
+    
+    // Reset scroll to top when page changes
+    $('.reader-body').scrollTop = 0;
+}
+
 $('#readOnlineBtn').onclick = async () => {
     if(state.extractedPages.length === 0) {
         const success = await extractEpaper();
         if(!success) return;
     }
-    state.extractedPages.forEach(link => window.open(link, '_blank'));
+    document.body.style.overflow = "hidden"; // Prevent background scrolling
+    readerModal.style.display = "flex";
+    loadReaderPage(0);
 };
 
+$('#closeReader').onclick = () => {
+    readerModal.style.display = "none";
+    document.body.style.overflow = "auto";
+    readerImage.src = "";
+};
+
+$('#prevPage').onclick = () => loadReaderPage(currentReaderPage - 1);
+$('#nextPage').onclick = () => loadReaderPage(currentReaderPage + 1);
+
+
+// --- Professional ZIP Downloader ---
 $('#downloadBtn').onclick = async () => {
     if(state.extractedPages.length === 0) {
         const success = await extractEpaper();
         if(!success) return;
     }
-    let htmlContent = "<h2>Long Press to Save Images</h2><br>";
-    state.extractedPages.forEach((link, idx) => {
-        htmlContent += `<a href="${link}" download="Page_${idx+1}.jpg" target="_blank">Download Page ${idx+1}</a><br><br>`;
-    });
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    
+    const statusEl = $('#extractionStatus');
+    statusEl.textContent = "Starting ZIP creation... Please wait.";
+    statusEl.style.color = "var(--ink)";
+    
+    try {
+        const zip = new JSZip();
+        const folderName = `${state.paper}_${state.edition}`.replace(/\s+/g, "_");
+        const imgFolder = zip.folder(folderName);
+        
+        for(let i=0; i<state.extractedPages.length; i++){
+            statusEl.textContent = `Downloading to ZIP: Page ${i+1} of ${state.extractedPages.length}...`;
+            // Fetching image as blob
+            const response = await fetch(state.extractedPages[i]);
+            const blob = await response.blob();
+            imgFolder.file(`Page_${String(i+1).padStart(3, '0')}.jpg`, blob);
+        }
+        
+        statusEl.textContent = "Packing files... This may take a few seconds.";
+        const content = await zip.generateAsync({type:"blob"});
+        saveAs(content, `${folderName}.zip`);
+        
+        statusEl.textContent = "Download Complete!";
+        statusEl.style.color = "var(--success)";
+    } catch (e) {
+        statusEl.textContent = "ZIP Generation failed. Try reading online.";
+        statusEl.style.color = "var(--rust)";
+    }
 };
 
 renderStep();
