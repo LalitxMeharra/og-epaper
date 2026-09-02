@@ -5,7 +5,6 @@ const state = { step: 1, maxStep: 1, date: null, lang: null, paper: null, editio
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-// History Setup
 const HISTORY_KEY = 'og_epaper_history';
 
 function getLocalYYYYMMDD(dateObj) {
@@ -64,7 +63,6 @@ function renderHistory() {
     });
 }
 
-// Global function for onclick
 window.quickLoadHistory = async function(lang, paper, edition, targetDate) {
     const statusEl = $('#historyStatus');
     statusEl.style.display = 'block';
@@ -74,14 +72,13 @@ window.quickLoadHistory = async function(lang, paper, edition, targetDate) {
         const res = await fetch(`/api/config/${targetDate}`);
         const data = await res.json();
         
-        // Validation: Check if this paper/edition exists for the target date
-        if(data.error || !data[lang] || !data[lang][paper] || !data[lang][paper].includes(edition)) {
+        // BUG FIX: Used 'in' operator instead of .includes() for JS Objects
+        if(data.error || !data[lang] || !data[lang][paper] || !(edition in data[lang][paper])) {
             alert(`Sorry, ${paper} (${edition}) is not available on TradingRef for date: ${targetDate}.`);
             statusEl.style.display = 'none';
             return;
         }
         
-        // Success! Jump to Step 5
         apiConfigData = data;
         state.date = targetDate;
         state.lang = lang;
@@ -95,11 +92,11 @@ window.quickLoadHistory = async function(lang, paper, edition, targetDate) {
         state.maxStep = 5;
         renderStep();
     } catch(e) {
-        alert("Network error fetching config.");
+        console.error(e);
+        alert("API Error: Unable to fetch data.");
     }
     statusEl.style.display = 'none';
 };
-// --------------------
 
 [0, -1, -2, -3].forEach(off => {
     const d = new Date(today); 
@@ -220,7 +217,7 @@ function buildEditions() {
             state.step = 5; state.maxStep = Math.max(state.maxStep, 5);
             renderStep();
             
-            // Save to Local History when reaching final step!
+            // Save to Local History
             saveToHistory();
         };
         if(state.edition === edition) btn.classList.add('selected');
@@ -387,6 +384,5 @@ $('#downloadBtn').onclick = async () => {
     }
 };
 
-// Init Call
 renderHistory();
 renderStep();
