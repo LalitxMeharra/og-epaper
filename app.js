@@ -5,6 +5,9 @@ const state = { step: 1, maxStep: 1, date: null, lang: null, paper: null, editio
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
+// History Setup
+const HISTORY_KEY = 'og_epaper_history';
+
 function getLocalYYYYMMDD(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -15,6 +18,88 @@ function getLocalYYYYMMDD(dateObj) {
 const today = new Date();
 $('#todaySeg').textContent = today.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
 $('#ticketSerial').textContent = '#RX-' + Math.floor(1000 + Math.random()*9000);
+
+// --- History Logic ---
+function saveToHistory() {
+    let history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    const entry = { lang: state.lang, paper: state.paper, edition: state.edition, date: state.date };
+    
+    // Remove duplicate if exact paper & edition exists
+    history = history.filter(h => !(h.paper === entry.paper && h.edition === entry.edition));
+    
+    history.unshift(entry);
+    if(history.length > 3) history = history.slice(0, 3); // Max 3 items
+    
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+}
+
+function renderHistory() {
+    const history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    const sec = $('#historySection');
+    const list = $('#historyList');
+    list.innerHTML = '';
+    
+    if(history.length === 0) {
+        sec.style.display = 'none';
+        return;
+    }
+    
+    sec.style.display = 'block';
+    history.forEach((h) => {
+        const dFormat = h.date.replace(/(\d{4})(\d{2})(\d{2})/, "$3-$2-$1");
+        const card = document.createElement('div');
+        card.className = 'hist-card';
+        card.innerHTML = `
+            <div>
+                <div class="hist-title">${h.paper} - ${h.edition}</div>
+                <div class="hist-meta">Language: ${h.lang} | Last Date: ${dFormat}</div>
+            </div>
+            <div class="hist-actions">
+                <button class="hist-btn" onclick="quickLoadHistory('${h.lang}', '${h.paper}', '${h.edition}', '${h.date}')">Read ${dFormat}</button>
+                <button class="hist-btn" onclick="quickLoadHistory('${h.lang}', '${h.paper}', '${h.edition}', '${getLocalYYYYMMDD(new Date())}')">Read Today</button>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+// Global function for onclick
+window.quickLoadHistory = async function(lang, paper, edition, targetDate) {
+    const statusEl = $('#historyStatus');
+    statusEl.style.display = 'block';
+    statusEl.textContent = `Validating availability for ${targetDate}...`;
+    
+    try {
+        const res = await fetch(`/api/config/${targetDate}`);
+        const data = await res.json();
+        
+        // Validation: Check if this paper/edition exists for the target date
+        if(data.error || !data[lang] || !data[lang][paper] || !data[lang][paper].includes(edition)) {
+            alert(`Sorry, ${paper} (${edition}) is not available on TradingRef for date: ${targetDate}.`);
+            statusEl.style.display = 'none';
+            return;
+        }
+        
+        // Success! Jump to Step 5
+        apiConfigData = data;
+        state.date = targetDate;
+        state.lang = lang;
+        state.paper = paper;
+        state.edition = edition;
+        state.extractedPages = [];
+        $('#extractionStatus').textContent = "";
+        
+        updateUI();
+        state.step = 5;
+        state.maxStep = 5;
+        renderStep();
+    } catch(e) {
+        alert("Network error fetching config.");
+    }
+    statusEl.style.display = 'none';
+};
+// --------------------
 
 [0, -1, -2, -3].forEach(off => {
     const d = new Date(today); 
@@ -80,7 +165,6 @@ function buildLanguages() {
         
         card.onclick = () => { 
             state.lang = lang; state.paper = null; state.edition = null; 
-            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
             
@@ -105,7 +189,6 @@ function buildPapers() {
         
         card.onclick = () => { 
             state.paper = paper; state.edition = null; 
-            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
 
@@ -130,13 +213,15 @@ function buildEditions() {
         
         btn.onclick = () => { 
             state.edition = edition; 
-            // STATE RESET - IMPORTANT
             state.extractedPages = [];
             $('#extractionStatus').textContent = "";
 
             updateUI(); 
             state.step = 5; state.maxStep = Math.max(state.maxStep, 5);
             renderStep();
+            
+            // Save to Local History when reaching final step!
+            saveToHistory();
         };
         if(state.edition === edition) btn.classList.add('selected');
         list.appendChild(btn);
@@ -233,7 +318,7 @@ $('#readOnlineBtn').onclick = async () => {
     const dataSource = state.extractedPages.map(url => ({
         src: url,
         w: 1400,
-        h: 2100, // Standard newspaper aspect ratio
+        h: 2100, 
         alt: 'E-Paper Page'
     }));
     
@@ -302,4 +387,6 @@ $('#downloadBtn').onclick = async () => {
     }
 };
 
+// Init Call
+renderHistory();
 renderStep();
